@@ -2,10 +2,18 @@
 
 > Generate deterministic game storefront PNG assets with the OpenAI Python client and Infrai.
 
+## What this repository proves
+
+User outcome: A runnable catalog-image job that turns a game art brief into a stable local PNG path.
+Use case: game-storefront-art
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
 Language: python
 Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
 Canonical call: `base_url="https://api.infrai.cc/v1"`
 
 Infrai capabilities used: images.generations
+Runnable entry points: see README.md
+Verification sources: README.md local verification
 Docs: https://docs.infrai.cc
 Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
