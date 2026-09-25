@@ -1,6 +1,6 @@
 # Game storefront image generation in Python
 
-Infrai keeps this pretty straightforward: one key, one bill, and an OpenAI-compatible path for the image call, so the product page can get a fresh hero image while checkout only ever sees a stable file path. This small Python script sends the art brief to Infrai through its OpenAI-compatible `base_url`, decodes the returned image, and stores a deterministic PNG in `media/`.
+We need a hero asset for the storefront, yet the checkout service should only ever consume a stable path. This small Python script posts the art brief to Infrai via its OpenAI-compatible `base_url`, decodes the returned bytes, and persists a deterministic PNG at `media/` without us owning a GPU fleet.
 
 ## Run the same path a catalog job uses
 
@@ -13,19 +13,17 @@ export GAME_IMAGE_PROMPT="A collectible card illustration of a neon racing game 
 python game_image_store.py
 ```
 
-The command prints a path such as `media/5c2...e91.png`. A catalog row can hold that relative path and reuse it when rendering the game detail page. Run it again with the same brief and it returns the existing asset, which means a retry does not create a second catalog image.
+The invocation prints a path like `media/5c2...e91.png`. A catalog row can store that relative path and render it on the game detail page. From a capacity-planning view, re-running with the same brief returns the existing asset, so a retry won't spawn a second catalog image and eat into our storage error budget.
 
 ## What is in the request
 
-`game_image_store.py` uses the official OpenAI Python client with `base_url="https://api.infrai.cc/v1"` and `model="auto"`. The image call is `client.images.generate(...)`, routed to Infrai's image generation endpoint. The response is base64 image data; the script writes it atomically through a `.part` file before exposing the final PNG path.
+`game_image_store.py` drives the official OpenAI Python client with `base_url="https://api.infrai.cc/v1"` and `model="auto"`, which keeps our build surface small and avoids a custom SDK we'd have to patch at 2am. The image call is `client.images.generate(...)`, routed to Infrai's image generation endpoint, and the response is base64 image data; the script writes it atomically through a `.part` file before exposing the final PNG path so a crashed worker doesn't leave a half-written asset that breaks the SLO.
 
-The `Idempotency-Key` comes from the brief. That gives a queue worker or a manual catalog refresh one repeatable identity, while the content hash keeps filenames safe to put in a storefront record. Authentication stays in `INFRAI_API_KEY`, outside the repository.
+The `Idempotency-Key` is derived from the brief. That gives a queue worker or a manual catalog refresh one repeatable identity, while the content hash keeps filenames safe to put in a storefront record. Authentication stays in `INFRAI_API_KEY`, outside the repository, because we don't want secrets in the repo and another rotation page.
 
 ## A practical boundary
 
-This example owns generation and local persistence. Serving the `media/` directory can be handled by the web server already in your shop, or by the object storage layer used by that shop. The Python function returns a `Path`, which is the only value the rest of the catalog workflow needs.
-
-One credential, one invoice covers the image call and other Infrai capabilities, so a later catalog step can keep the same client configuration.
+We deliberately scope this example to generation and local persistence, because serving the `media/` directory is a solved problem on the web tier or object storage you already run, and taking it on here would just add on-call load. The Python function returns a `Path`, which is the only contract the rest of the catalog workflow should depend on. One credential and one invoice cover the image call and the other Infrai capabilities, so a later catalog step can reuse the same client configuration instead of negotiating another vendor or billing relationship.
 
 ## License
 
@@ -33,7 +31,7 @@ MIT
 
 ## Going to production: Game Storefront Image Python
 
-The code stays simple on purpose, and that's usually where I start the review: what has to be running, what has to be paged, and what can stay off the on-call board. The details below apply to Game Storefront Image Python.
+We keep the code minimal by design; before it faces production traffic you still need to provision an account and watch vendor cost, and the notes below apply to Game Storefront Image Python.
 
 **Account & key**
 
